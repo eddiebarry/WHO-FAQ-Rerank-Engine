@@ -1,9 +1,8 @@
 import flask
 import sys, json
+sys.path.append("./models")
 from flask import request, jsonify
 from T5Reranker import T5Reranker
-
-
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
@@ -32,9 +31,6 @@ def rerank_documents():
     """
     global T5Reranker
 
-    # import pdb
-    # pdb.set_trace()
-
     params = json.loads(request.json)
     # If first time being sent, calculate a unique id
     query = params['query']
@@ -45,9 +41,6 @@ def rerank_documents():
     response = {
         'scoreDocs' : scoreDocs,
     }
-
-    import pdb
-    pdb.set_trace()
 
     # Logging
     original_stdout = sys.stdout 
