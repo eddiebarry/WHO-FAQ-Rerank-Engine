@@ -24,7 +24,8 @@ class T5Reranker(Reranker):
         device = torch.device(\
             "cuda:0" if torch.cuda.is_available() else "cpu")
 
-        if device == "cpu":
+        if not torch.cuda.is_available():# if True:
+            print("using cpu")
             model = model.to(device).eval()
         else:
             print("using gpu")
