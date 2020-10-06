@@ -17,20 +17,27 @@ class T5Reranker(Reranker):
 
         self.use_reranking_api = use_reranking_api
 
-        if not self.use_reranking_api:         
-            model_name = 'castorini/monot5-base-msmarco'
-            model = T5ForConditionalGeneration.from_pretrained(model_name)
-            model = model.to("cpu").eval()
-            self.model = model
+        # if not self.use_reranking_api:         
+        model_name = 'castorini/monot5-base-msmarco'
+        model = T5ForConditionalGeneration.from_pretrained(model_name)
+        
+        device = torch.device(\
+            "cuda:0" if torch.cuda.is_available() else "cpu")
 
-            tokenizer_name = 't5-base'
-            tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-            tokenizer = T5BatchTokenizer(tokenizer, batch_size)
-            self.tokenizer = tokenizer
-            
-            self.device = next(self.model.parameters(), None).device
+        if device == "cpu":
+            model = model.to(device).eval()
         else:
-            self.endpoint = endpoint
+            print("using gpu")
+            model = model.half().to(device).eval()
+
+        self.model = model
+
+        tokenizer_name = 't5-base'
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+        tokenizer = T5BatchTokenizer(tokenizer, batch_size)
+        self.tokenizer = tokenizer
+        
+        self.device = next(self.model.parameters(), None).device
 
     def rerank(self, qry: str, txts: List[str]) -> List[Text]:
         if self.use_reranking_api:
@@ -60,9 +67,6 @@ class T5Reranker(Reranker):
         scoreDocs = [[x.score, x.text] for x in texts]
 
         return scoreDocs
-    
-    def rerank_using_endpoint():
-        return 0
 
 @torch.no_grad()
 def greedy_decode(model: PreTrainedModel,

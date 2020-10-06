@@ -57,9 +57,6 @@ def rerank_documents():
     return jsonify(response)
 
 
-
-        
-
 if __name__ == '__main__':
     T5Reranker = T5Reranker()
     app.run(host='0.0.0.0', port = 5007)
