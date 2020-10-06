@@ -1,4 +1,6 @@
 import torch
+
+from torch.cuda.amp import autocast
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from transformers import PreTrainedModel
 
@@ -24,12 +26,13 @@ class T5Reranker(Reranker):
         device = torch.device(\
             "cuda:0" if torch.cuda.is_available() else "cpu")
 
-        if not torch.cuda.is_available():# if True:
+        if not torch.cuda.is_available():
             print("using cpu")
             model = model.to(device).eval()
         else:
+            #TODO : figure out half precison
             print("using gpu")
-            model = model.half().to(device).eval()
+            model = model.to(device).eval()
 
         self.model = model
 
@@ -59,6 +62,7 @@ class T5Reranker(Reranker):
 
             # 6136 and 1176 are the indexes of the tokens false and true in T5.
             batch_scores = batch_scores[:, [6136, 1176]]
+
             batch_scores = torch.nn.functional.log_softmax(batch_scores, dim=1)
             batch_log_probs = batch_scores[:, 1].tolist()
             for doc, score in zip(batch.documents, batch_log_probs):
@@ -86,7 +90,10 @@ def greedy_decode(model: PreTrainedModel,
             past=past,
             attention_mask=attention_mask,
             use_cache=True)
-        outputs = model(**model_inputs)  # (batch_size, cur_len, vocab_size)
+        
+        with autocast():  
+            outputs = model(**model_inputs)  # (batch_size, cur_len, vocab_size)
+        
         next_token_logits = outputs[0][:, -1, :]  # (batch_size, vocab_size)
         decode_ids = torch.cat([decode_ids,
                                 next_token_logits.max(1)[1].unsqueeze(-1)],

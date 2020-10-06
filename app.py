@@ -8,6 +8,9 @@ from T5Reranker import T5Reranker
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
+@app.route('/')
+def hello_world():
+    return 'Hello, World! The reranking service is up :)'
 
 @app.route('/api/v1/reranking', methods=['GET'])
 def rerank_documents():
@@ -42,6 +45,9 @@ def rerank_documents():
     response = {
         'scoreDocs' : scoreDocs,
     }
+
+    import pdb
+    pdb.set_trace()
 
     # Logging
     original_stdout = sys.stdout 
