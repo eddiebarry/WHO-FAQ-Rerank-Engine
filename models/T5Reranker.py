@@ -12,12 +12,10 @@ DecodedOutput = Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
 
 
 class T5Reranker(Reranker):
-    def __init__(self,
-                 batch_size: int = 8, 
-                 use_reranking_api=False, 
-                 endpoint=None):
-
-        self.use_reranking_api = use_reranking_api
+    def __init__(
+            self,
+            batch_size: int = 50, 
+        ):
 
         # if not self.use_reranking_api:         
         model_name = 'castorini/monot5-base-msmarco'
@@ -89,6 +87,7 @@ def greedy_decode(model: PreTrainedModel,
             attention_mask=attention_mask,
             use_cache=True)
         
+        # Significant speed improvements with mixed precision
         with autocast():  
             outputs = model(**model_inputs)  # (batch_size, cur_len, vocab_size)
         

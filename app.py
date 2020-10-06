@@ -31,6 +31,9 @@ def rerank_documents():
     """
     global T5Reranker
 
+    # import pdb
+    # pdb.set_trace()
+
     params = json.loads(request.json)
     # If first time being sent, calculate a unique id
     query = params['query']
