@@ -4,6 +4,11 @@ from torch.cuda.amp import autocast
 from transformers import AutoTokenizer, T5ForConditionalGeneration
 from transformers import PreTrainedModel
 
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
+torch.backends.cudnn.fastest = True
+torch.backends.cudnn.deterministic = True
+
 from base import Reranker, Text, Query, QueryDocumentBatch
 from T5Tokenizer import T5BatchTokenizer
 from typing import List, Mapping, Tuple, Union, Iterable, Optional, Any
@@ -30,7 +35,7 @@ class T5Reranker(Reranker):
         else:
             #TODO : figure out half precison
             print("using gpu")
-            model = model.to(device).eval()
+            model = model.to(device).half().eval()
 
         self.model = model
 
@@ -43,6 +48,10 @@ class T5Reranker(Reranker):
 
     def rerank(self, qry: str, txts: List[str]) -> List[Text]:
 
+        # import timeit
+        
+        # start = timeit.default_timer()
+
         query = Query(qry)
         texts = [ Text(p[1], 0) for p in txts]
 
@@ -50,11 +59,15 @@ class T5Reranker(Reranker):
         for batch in self.tokenizer.traverse_query_document(batch_input):
             input_ids = batch.output['input_ids'].to(self.device)
             attn_mask = batch.output['attention_mask'].to(self.device)
+            
+            # start = timeit.default_timer()
             _, batch_scores = greedy_decode(self.model,
                                             input_ids,
                                             length=1,
                                             attention_mask=attn_mask,
                                             return_last_logits=True)
+            # stop = timeit.default_timer()
+            # print(stop-start)
 
             # 6136 and 1176 are the indexes of the tokens false and true in T5.
             batch_scores = batch_scores[:, [6136, 1176]]
@@ -66,6 +79,10 @@ class T5Reranker(Reranker):
         
         texts.sort(key=lambda x: x.score, reverse=True)
         scoreDocs = [[x.score, x.text] for x in texts]
+        
+        
+        # stop = timeit.default_timer()
+        # print(stop-start)
 
         return scoreDocs
 

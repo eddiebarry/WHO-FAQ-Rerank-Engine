@@ -45,16 +45,16 @@ def rerank_documents():
         'scoreDocs' : scoreDocs,
     }
 
-    # Logging
-    original_stdout = sys.stdout 
-    with open('rerank_log.txt', 'a') as f:
-        sys.stdout = f # Change the standard output to the file we created.
-        print('$'*80)
-        print("The user query is ", query)
-        print("The documents to rerank are ", texts)
-        print("The results of the reranking is ", scoreDocs)
-        print('$'*80)
-        sys.stdout = original_stdout
+    # # Logging
+    # original_stdout = sys.stdout 
+    # with open('rerank_log.txt', 'a') as f:
+    #     sys.stdout = f # Change the standard output to the file we created.
+    #     print('$'*80)
+    #     print("The user query is ", query)
+    #     print("The documents to rerank are ", texts)
+    #     print("The results of the reranking is ", scoreDocs)
+    #     print('$'*80)
+    #     sys.stdout = original_stdout
 
     return jsonify(response)
 
