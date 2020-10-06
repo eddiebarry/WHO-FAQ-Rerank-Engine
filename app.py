@@ -2,7 +2,7 @@ import flask
 import sys, json
 sys.path.append("./models")
 from flask import request, jsonify
-from T5Reranker import T5Reranker
+from models.T5Reranker import T5Reranker
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
