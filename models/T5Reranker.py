@@ -35,7 +35,7 @@ class T5Reranker(Reranker):
         else:
             #TODO : figure out half precison
             print("using gpu")
-            model = model.to(device).half().eval()
+            model = model.to(device).eval()
 
         self.model = model
 
