@@ -1,3 +1,5 @@
+import pdb
+
 # coding=utf-8
 # Copyright 2018 Mesh TensorFlow authors, T5 Authors and HuggingFace Inc. team.
 #
@@ -26,8 +28,7 @@ from torch import nn
 from torch.nn import CrossEntropyLoss
 
 from transformers.configuration_t5 import T5Config
-from transformers.file_utils import DUMMY_INPUTS, DUMMY_MASK, \
-    add_start_docstrings, add_start_docstrings_to_callable
+from transformers.file_utils import DUMMY_INPUTS, DUMMY_MASK, add_start_docstrings, add_start_docstrings_to_callable
 from transformers.modeling_utils import PreTrainedModel, prune_linear_layer
 
 
@@ -151,12 +152,30 @@ class T5LayerNorm(nn.Module):
 
     def forward(self, x):
         # layer norm should always be calculated in float32
-        variance = x.to(torch.float32).pow(2).mean(-1, keepdim=True)
-        x = x / torch.sqrt(variance + self.variance_epsilon)
+        x = x.to(torch.float32)
+        # if torch.isnan(x).any() or torch.isinf(x).any():
+        #     print("layer norm input is naning inside layer norm")
+            # pdb.set_trace()
+
+        variance = x.pow(2).mean(-1, keepdim=True)        
+        # if torch.isnan(variance).any() or torch.isinf(variance).any():
+        #     print("layer norm variance is naning inside layer norm")
+            # pdb.set_trace()
+
+        var_div = x / torch.sqrt(variance + self.variance_epsilon)
+        # if torch.isnan(var_div).any() or torch.isinf(var_div).any():
+        #     print("layer norm x is naning inside layer norm")
+            # pdb.set_trace()
 
         if self.weight.dtype == torch.float16:
-            x = x.to(torch.float16)
-        return self.weight * x
+            var_div = var_div.to(torch.float16)
+
+        temp = self.weight * var_div
+        # if torch.isnan(temp).any() or torch.isinf(temp).any():
+        #     print("layer norm weight mult is naning inside layer norm")
+            # pdb.set_trace()
+
+        return temp
 
 
 class T5DenseReluDense(nn.Module):
@@ -182,12 +201,33 @@ class T5LayerFF(nn.Module):
         self.dropout = nn.Dropout(config.dropout_rate)
 
     def forward(self, hidden_states):
+        # if torch.isnan(hidden_states).any():
+        #     print("hidden states is naning layerff")
+        # if torch.isinf(hidden_states).any():
+        #     print("hidden states is infing layerff")
         norm_x = self.layer_norm(hidden_states)
+
+        # if torch.isnan(norm_x).any():
+        #     print("norm_x is naning layerff")
+        # if torch.isinf(norm_x).any():
+        #     print("norm_x is infing layerff")
+
         y = self.DenseReluDense(norm_x)
+        # if torch.isnan(y).any():
+        #     print("y is naning layerff")
+        # if torch.isinf(y).any():
+        #     print("y is infing layerff")
         layer_output = hidden_states + self.dropout(y)
+
         if layer_output.dtype == torch.float16:
             finfo = torch.finfo(torch.float16)
             layer_output = torch.clamp(layer_output,min=finfo.min,max=finfo.max)
+        # if torch.isnan(layer_output).any():
+        #     print("layer out is naning layerff")
+        # if torch.isinf(layer_output).any():
+        #     print("layer out is infing layerff")
+        #     pdb.set_trace()
+
         return layer_output
 
 
@@ -380,7 +420,7 @@ class T5Attention(nn.Module):
                 position_bias = position_bias + mask  # (bs, n_heads, qlen, klen)
 
         scores += position_bias
-        weights = F.softmax(scores.float(), dim=-1).type_as(scores)  # (bs, n_heads, qlen, klen)
+        weights = F.softmax(scores.half(), dim=-1).type_as(scores)  # (bs, n_heads, qlen, klen)
         weights = F.dropout(weights, p=self.dropout, training=self.training)  # (bs, n_heads, qlen, klen)
 
         # Mask heads if we want to
@@ -398,6 +438,9 @@ class T5Attention(nn.Module):
             outputs = outputs + (weights,)
         if self.has_relative_attention_bias:
             outputs = outputs + (position_bias,)
+
+        # if torch.isnan(outputs[0]).any() or torch.isinf(outputs[0]).any():
+        #     print("Attention is nanning line 401")
         return outputs
 
 
@@ -417,7 +460,15 @@ class T5LayerSelfAttention(nn.Module):
         past_key_value_state=None,
         use_cache=False,
     ):
+        # if torch.isnan(hidden_states).any():
+        #     print("hidden states is naning self attention")
+        # if torch.isinf(hidden_states).any():
+        #     print("hidden states is infing self attention")
+
         norm_x = self.layer_norm(hidden_states)
+        # if torch.isnan(norm_x).any() or torch.isinf(norm_x).any():
+        #     print("layer norm is naning self attention")
+            # pdb.set_trace()
         attention_output = self.SelfAttention(
             norm_x,
             mask=attention_mask,
@@ -427,10 +478,15 @@ class T5LayerSelfAttention(nn.Module):
             use_cache=use_cache,
         )
         y = attention_output[0]
+        # if torch.isnan(y).any() or torch.isinf(y).any():
+        #     print("EncDecAttention is naning self attention")
         layer_output = hidden_states + self.dropout(y)
-        if layer_output.dtype == torch.float16:
-            finfo = torch.finfo(torch.float16)
-            layer_output = torch.clamp(layer_output,min=finfo.min,max=finfo.max)
+        finfo = torch.finfo(torch.float16)
+        layer_output = torch.clamp(layer_output,min=finfo.min,max=finfo.max)
+        
+        # if torch.isnan(layer_output).any() or torch.isinf(layer_output).any():
+        #     print("layer utput is naning self attention")
+        #     pdb.set_trace()
         outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
         return outputs
 
@@ -454,6 +510,8 @@ class T5LayerCrossAttention(nn.Module):
         query_length=None,
     ):
         norm_x = self.layer_norm(hidden_states)
+        # if torch.isnan(norm_x).any() or torch.isinf(norm_x).any():
+        #     print("layer norm is naning cross attention")
         attention_output = self.EncDecAttention(
             norm_x,
             mask=attention_mask,
@@ -465,6 +523,8 @@ class T5LayerCrossAttention(nn.Module):
             query_length=query_length,
         )
         y = attention_output[0]
+        # if torch.isnan(y).any() or torch.isinf(y).any():
+        #     print("EncDecAttention is naning cross attention")
         layer_output = hidden_states + self.dropout(y)
         outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
         return outputs
@@ -493,7 +553,11 @@ class T5Block(nn.Module):
         past_key_value_state=None,
         use_cache=False,
     ):
-
+        # if torch.isnan(hidden_states).any():
+        #     print("inside t5 block line 549 hidden states nan")
+        # if torch.isinf(hidden_states).any():
+        #     print("inside t5 block line 550 hidden states inf")
+            
         if past_key_value_state is not None:
             assert self.is_decoder, "Only decoder can use `past_key_value_states`"
             expected_num_past_key_value_states = 2 if encoder_hidden_states is None else 4
@@ -518,6 +582,7 @@ class T5Block(nn.Module):
             past_key_value_state=self_attn_past_key_value_state,
             use_cache=use_cache,
         )
+        
         hidden_states, present_key_value_state = self_attention_outputs[:2]
         attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
 
@@ -539,6 +604,12 @@ class T5Block(nn.Module):
                 query_length=query_length,
                 use_cache=use_cache,
             )
+
+            # if torch.isnan(cross_attention_outputs[0]).any():
+            #     print("inside t5 block line 574 nan cross attention outputs")
+            # if  torch.isinf(cross_attention_outputs[0]).any():
+            #     print("inside t5 block line 574 inf cross attention outputs")
+
             hidden_states = cross_attention_outputs[0]
             # Combine self attn and cross attn key value states
             if present_key_value_state is not None:
@@ -546,13 +617,29 @@ class T5Block(nn.Module):
 
             # Keep cross-attention outputs and relative position weights
             attention_outputs = attention_outputs + cross_attention_outputs[2:]
+            
+        # if torch.isnan(hidden_states).any():
+        #     print("inside t5 block line 588 hidden states")
+        # if torch.isinf(hidden_states).any():
+        #     print("inside t5 block line 590 hidden states")
+            # pdb.set_trace()
 
+        # pdb.set_trace()
         # Apply Feed Forward layer
-        hidden_states = self.layer[-1](hidden_states)
-        outputs = (hidden_states,)
+        new_hidden_states = self.layer[-1](hidden_states)
+        # if torch.isnan(new_hidden_states).any() or torch.isinf(new_hidden_states).any():
+        #     pdb.set_trace()
+        
+        outputs = (new_hidden_states,)
 
         # Add attentions if we output them
         outputs = outputs + (present_key_value_state,) + attention_outputs
+
+        # if torch.isnan(hidden_states).any():
+        #     print("inside t5 block line 602 nan")        
+        # if torch.isinf(hidden_states).any():
+        #     print("inside t5 block line 602 inf")        
+
         return outputs  # hidden-states, present_key_value_states, (self-attention weights), (self-attention position bias), (cross-attention weights), (cross-attention position bias)
 
 
@@ -727,9 +814,10 @@ class T5Stack(T5PreTrainedModel):
         encoder_decoder_position_bias = None
 
         hidden_states = self.dropout(inputs_embeds)
-
-        # import pdb
-        # pdb.set_trace()
+        # if torch.isnan(hidden_states).any():
+        #     print("inside t5 stack line 784 nan")
+        # if torch.isinf(hidden_states).any():
+        #     print("inside t5 stack line 784 inf")  
 
         for i, (layer_module, past_key_value_state) in enumerate(zip(self.block, past_key_value_states)):
             if self.output_hidden_states:
@@ -746,18 +834,15 @@ class T5Stack(T5PreTrainedModel):
                 past_key_value_state=past_key_value_state,
                 use_cache=use_cache,
             )
-            # if i == 11:
-            #     import pdb
-            #     pdb.set_trace()
+
             # layer_outputs is a tuple with:
             # hidden-states, key-value-states, (self-attention weights), (self-attention position bias), (cross-attention weights), (cross-attention position bias)
             hidden_states, present_key_value_state = layer_outputs[:2]
-
-            # print('$'*80)
-            # print(i)
-            # print(hidden_states)
-            # import pdb
-            # pdb.set_trace()
+            
+            # if torch.isnan(hidden_states).any():
+            #     print(i, "inside t5 stack line 808 nan")
+            # if torch.isinf(hidden_states).any():
+            #     print(i, "inside t5 stack line 810 inf")  
 
             if i == 0:
                 # We share the position biases between the layers - the first layer store them
@@ -770,9 +855,6 @@ class T5Stack(T5PreTrainedModel):
 
             if self.output_attentions:
                 all_attentions = all_attentions + (layer_outputs[2],)  # We keep only self-attention weights for now
-
-        # import pdb
-        # pdb.set_trace()
 
         hidden_states = self.final_layer_norm(hidden_states)
         hidden_states = self.dropout(hidden_states)
@@ -789,10 +871,6 @@ class T5Stack(T5PreTrainedModel):
             outputs = outputs + (all_hidden_states,)
         if self.output_attentions:
             outputs = outputs + (all_attentions,)
-        
-        # import pdb
-        # pdb.set_trace()
-
         return outputs  # last-layer hidden state, (presents,) (all hidden states), (all attentions)
 
 
@@ -997,11 +1075,11 @@ class T5ForConditionalGenerationCustom(T5PreTrainedModel):
         self.shared = nn.Embedding(config.vocab_size, config.d_model)
 
         encoder_config = copy.deepcopy(config)
-        self.encoder = T5Stack(encoder_config, self.shared).half()
+        self.encoder = T5Stack(encoder_config, self.shared)
 
         decoder_config = copy.deepcopy(config)
         decoder_config.is_decoder = True
-        self.decoder = T5Stack(decoder_config, self.shared).half()
+        self.decoder = T5Stack(decoder_config, self.shared)
 
         self.lm_head = nn.Linear(config.d_model, config.vocab_size, bias=False)
 
@@ -1081,6 +1159,7 @@ class T5ForConditionalGenerationCustom(T5PreTrainedModel):
         input_ids = tokenizer.encode("summarize: Hello, my dog is cute", return_tensors="pt")  # Batch size 1
         outputs = model.generate(input_ids)
         """
+        # print("$"*80, "Inside custom model")
 
         # Encode if needed (training, first prediction pass)
         if encoder_outputs is None:
@@ -1179,3 +1258,362 @@ class T5ForConditionalGenerationCustom(T5PreTrainedModel):
 
             reordered_decoder_past = reordered_decoder_past + (reordered_layer_past_states,)
         return past + (reordered_decoder_past,)
+
+print("T5 model init done")
+
+
+# from transformers import AutoTokenizer, T5ForConditionalGeneration
+from transformers import PreTrainedTokenizer
+from transformers import PreTrainedModel, AutoTokenizer
+from typing import List, Mapping, Tuple, Union, Iterable, Optional, Any
+from dataclasses import dataclass
+import abc
+import torch
+from torch.cuda.amp import autocast
+
+TokenizerReturnType = Mapping[str, Union[torch.Tensor, List[int],
+                                         List[List[int]],
+                                         List[List[str]]]]
+class Query:
+    """Class representing a query.
+    A query contains the query text itself and potentially other metadata.
+    Parameters
+    ----------
+    text : str
+        The query text.
+    id : Optional[str]
+        The query id.
+    """
+    def __init__(self, text: str, id: Optional[str] = None):
+        self.text = text
+        self.id = id
+
+
+class Text:
+    """Class representing a text to be reranked.
+    A text is unspecified with respect to it length; in principle, it
+    could be a full-length document, a paragraph-sized passage, or
+    even a short phrase.
+    Parameters
+    ----------
+    text : str
+        The text to be reranked.
+    metadata : Mapping[str, Any]
+        Additional metadata and other annotations.
+    score : Optional[float]
+        The score of the text. For example, the score might be the BM25 score
+        from an initial retrieval stage.
+    """
+
+    def __init__(self,
+                 text: str,
+                 metadata: Mapping[str, Any] = None,
+                 score: Optional[float] = 0):
+        self.text = text
+        if metadata is None:
+            metadata = dict()
+        self.metadata = metadata
+        self.score = score
+
+@dataclass
+class QueryDocumentBatch:
+    query: Query
+    documents: List[Text]
+    output: Optional[TokenizerReturnType] = None
+
+    def __len__(self):
+        return len(self.documents)
+
+class TokenizerEncodeMixin:
+    tokenizer: PreTrainedTokenizer = None
+    tokenizer_kwargs = None
+
+    def encode(self, strings: List[str]) -> TokenizerReturnType:
+        assert self.tokenizer and self.tokenizer_kwargs is not None, \
+                'mixin used improperly'
+        ret = self.tokenizer.batch_encode_plus(strings,
+                                               **self.tokenizer_kwargs)
+        ret['tokens'] = list(map(self.tokenizer.tokenize, strings))
+        return ret
+
+class AppendEosTokenizerMixin:
+    tokenizer: PreTrainedTokenizer = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def encode(self, strings: List[str]) -> TokenizerReturnType:
+        assert self.tokenizer, 'mixin used improperly'
+        return super().encode(
+            [f'{x} {self.tokenizer.eos_token}' for x in strings])
+
+
+class QueryDocumentBatchTokenizer(TokenizerEncodeMixin):
+    def __init__(self,
+                 tokenizer: PreTrainedTokenizer,
+                 batch_size: int,
+                 pattern: str = '{query} {document}',
+                 **tokenizer_kwargs):
+        self.tokenizer = tokenizer
+        self.batch_size = batch_size
+        self.tokenizer_kwargs = tokenizer_kwargs
+        self.pattern = pattern
+
+    def traverse_query_document(
+            self,
+            batch_input: QueryDocumentBatch) -> Iterable[QueryDocumentBatch]:
+        query = batch_input.query
+        for batch_idx in range(0, len(batch_input), self.batch_size):
+            docs = batch_input.documents[batch_idx:batch_idx + self.batch_size]
+            outputs = self.encode([self.pattern.format(
+                                        query=query.text,
+                                        document=doc.text) for doc in docs])
+            yield QueryDocumentBatch(query, docs, outputs)
+
+class T5BatchTokenizer(AppendEosTokenizerMixin, QueryDocumentBatchTokenizer):
+    def __init__(self, *args, **kwargs):
+        kwargs['pattern'] = 'Query: {query} Document: {document} Relevant:'
+        kwargs['return_attention_mask'] = True
+        kwargs['padding'] = True
+        kwargs['return_tensors'] = 'pt'
+        kwargs['pad_to_max_length'] = True
+        super().__init__(*args, **kwargs)
+
+from copy import deepcopy
+
+DecodedOutput = Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
+
+model_inputs = None
+
+@torch.no_grad()
+def greedy_decode(model: PreTrainedModel,
+                  input_ids: torch.Tensor,
+                  length: int,
+                  attention_mask: torch.Tensor = None,
+                  return_last_logits: bool = True) -> DecodedOutput:
+    decode_ids = torch.full((input_ids.size(0), 1),
+                            model.config.decoder_start_token_id,
+                            dtype=torch.long).to(input_ids.device)
+    past = model.get_encoder()(input_ids, attention_mask=attention_mask)
+    next_token_logits = None
+    for _ in range(length):
+        model_inputs = model.prepare_inputs_for_generation(
+            decode_ids,
+            past=past,
+            attention_mask=attention_mask,
+            use_cache=True)
+        with autocast():    
+            outputs = model(**model_inputs)  # (batch_size, cur_len, vocab_size)
+        next_token_logits = outputs[0][:, -1, :]  # (batch_size, vocab_size)
+        decode_ids = torch.cat([decode_ids,
+                                next_token_logits.max(1)[1].unsqueeze(-1)],
+                               dim=-1)
+        past = outputs[1]
+    if return_last_logits:
+        return decode_ids, next_token_logits#, model_inputs
+    return decode_ids#, model_inputs
+
+class Reranker:
+    """Class representing a reranker.
+    A reranker takes a list texts and returns a list of texts non-destructively
+    (i.e., does not alter the original input list of texts).
+    """
+    @abc.abstractmethod
+    def rerank(self, query: Query, texts: List[Text]) -> List[Text]:
+        """Reranks a list of texts with respect to a query.
+         Parameters
+         ----------
+         query : Query
+             The query.
+         texts : List[Text]
+             The list of texts.
+         Returns
+         -------
+         List[Text]
+             Reranked list of texts.
+         """
+        pass
+
+class T5Reranker(Reranker):
+    def __init__(self,
+                 model: T5ForConditionalGenerationCustom,
+                 tokenizer: QueryDocumentBatchTokenizer):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.device = next(self.model.parameters(), None).device
+
+    def rerank(self, query: Query, texts: List[Text]) -> List[Text]:
+        texts = deepcopy(texts)
+        batch_input = QueryDocumentBatch(query=query, documents=texts)
+
+        for batch in self.tokenizer.traverse_query_document(batch_input):
+            input_ids = batch.output['input_ids'].to(self.device)
+            attn_mask = batch.output['attention_mask'].to(self.device)
+            # print("$"*80,"here")
+            # _, batch_scores, model_inputs = greedy_decode(self.model,
+            _, batch_scores = greedy_decode(self.model,
+                                            input_ids,
+                                            length=1,
+                                            attention_mask=attn_mask,
+                                            return_last_logits=True)
+
+            # 6136 and 1176 are the indexes of the tokens false and true in T5.
+            batch_scores = batch_scores[:, [6136, 1176]]
+
+            if torch.isnan(batch_scores).any() or torch.isinf(batch_scores).any():
+                print("houston we have a problem")
+
+            batch_scores = torch.nn.functional.log_softmax(batch_scores, dim=1)
+
+            batch_log_probs = batch_scores[:, 1].tolist()
+            for doc, score in zip(batch.documents, batch_log_probs):
+                doc.score = score
+        return texts#, model_inputs
+
+
+print("class setup done")
+#####################################################################
+batch_size = 50
+
+model_name = 'castorini/monot5-base-msmarco'
+model = T5ForConditionalGenerationCustom.from_pretrained(model_name)
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+model = model.to(device).eval()
+
+tokenizer_name = 't5-base'
+tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+tokenizer = T5BatchTokenizer(tokenizer, batch_size)
+
+reranker =  T5Reranker(model, tokenizer)
+print("base model loading done")
+######################################################################
+query = Query('who proposed the geocentric theory')
+
+passages = [['7744105', 'For Earth-centered it was  Geocentric Theory proposed by greeks under the guidance of Ptolemy and Sun-centered was Heliocentric theory proposed by Nicolas Copernicus in 16th century A.D. In short, Your Answers are: 1st blank - Geo-Centric Theory. 2nd blank - Heliocentric Theory.'], ['2593796', 'Copernicus proposed a heliocentric model of the solar system â\x80\x93 a model where everything orbited around the Sun. Today, with advancements in science and technology, the geocentric model seems preposterous.he geocentric model, also known as the Ptolemaic system, is a theory that was developed by philosophers in Ancient Greece and was named after the philosopher Claudius Ptolemy who lived circa 90 to 168 A.D. It was developed to explain how the planets, the Sun, and even the stars orbit around the Earth.'], ['6217200', 'The geocentric model, also known as the Ptolemaic system, is a theory that was developed by philosophers in Ancient Greece and was named after the philosopher Claudius Ptolemy who lived circa 90 to 168 A.D. It was developed to explain how the planets, the Sun, and even the stars orbit around the Earth.opernicus proposed a heliocentric model of the solar system â\x80\x93 a model where everything orbited around the Sun. Today, with advancements in science and technology, the geocentric model seems preposterous.'], ['3276925', 'Copernicus proposed a heliocentric model of the solar system â\x80\x93 a model where everything orbited around the Sun. Today, with advancements in science and technology, the geocentric model seems preposterous.Simple tools, such as the telescope â\x80\x93 which helped convince Galileo that the Earth was not the center of the universe â\x80\x93 can prove that ancient theory incorrect.ou might want to check out one article on the history of the geocentric model and one regarding the geocentric theory. Here are links to two other articles from Universe Today on what the center of the universe is and Galileo one of the advocates of the heliocentric model.'], ['6217208', 'Copernicus proposed a heliocentric model of the solar system â\x80\x93 a model where everything orbited around the Sun. Today, with advancements in science and technology, the geocentric model seems preposterous.Simple tools, such as the telescope â\x80\x93 which helped convince Galileo that the Earth was not the center of the universe â\x80\x93 can prove that ancient theory incorrect.opernicus proposed a heliocentric model of the solar system â\x80\x93 a model where everything orbited around the Sun. Today, with advancements in science and technology, the geocentric model seems preposterous.'], ['4280557', 'The geocentric model, also known as the Ptolemaic system, is a theory that was developed by philosophers in Ancient Greece and was named after the philosopher Claudius Ptolemy who lived circa 90 to 168 A.D. It was developed to explain how the planets, the Sun, and even the stars orbit around the Earth.imple tools, such as the telescope â\x80\x93 which helped convince Galileo that the Earth was not the center of the universe â\x80\x93 can prove that ancient theory incorrect. You might want to check out one article on the history of the geocentric model and one regarding the geocentric theory.'], ['264181', 'Nicolaus Copernicus (b. 1473â\x80\x93d. 1543) was the first modern author to propose a heliocentric theory of the universe. From the time that Ptolemy of Alexandria (c. 150 CE) constructed a mathematically competent version of geocentric astronomy to Copernicusâ\x80\x99s mature heliocentric version (1543), experts knew that the Ptolemaic system diverged from the geocentric concentric-sphere conception of Aristotle.'], ['4280558', 'A Geocentric theory is an astronomical theory which describes the universe as a Geocentric system, i.e., a system which puts the Earth in the center of the universe, and describes other objects from the point of view of the Earth. Geocentric theory is an astronomical theory which describes the universe as a Geocentric system, i.e., a system which puts the Earth in the center of the universe, and describes other objects from the point of view of the Earth.'], ['3276926', 'The geocentric model, also known as the Ptolemaic system, is a theory that was developed by philosophers in Ancient Greece and was named after the philosopher Claudius Ptolemy who lived circa 90 to 168 A.D. It was developed to explain how the planets, the Sun, and even the stars orbit around the Earth.ou might want to check out one article on the history of the geocentric model and one regarding the geocentric theory. Here are links to two other articles from Universe Today on what the center of the universe is and Galileo one of the advocates of the heliocentric model.'], ['5183032', "After 1,400 years, Copernicus was the first to propose a theory which differed from Ptolemy's geocentric system, according to which the earth is at rest in the center with the rest of the planets revolving around it."]]
+
+texts = [ Text(p[1], {'docid': p[0]}, 0) for p in passages] # Note, pyserini scores don't matter since T5 will ignore them.
+
+# Either option, let's print out the passages prior to reranking:
+for i in range(0, 10):
+    print(f'{i+1:2} {texts[i].metadata["docid"]:15} {texts[i].score:.5f} {texts[i].text}')
+
+print('*'*80)
+
+# Finally, rerank:
+# reranked, model_inputs = reranker.rerank(query, texts)
+reranked = reranker.rerank(query, texts)
+# temp = reranker.rerank(query, texts)
+
+reranked.sort(key=lambda x: x.score, reverse=True)
+
+# Print out reranked results:
+for i in range(0, 10):
+    print(f'{i+1:2} {reranked[i].metadata["docid"]:15} {reranked[i].score:.5f} {reranked[i].text}')
+
+print("base reranking done")
+######################################################################
+import pickle
+import os
+from tqdm.auto import tqdm
+import random
+
+import timeit
+import numpy as np
+
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.enabled = True
+torch.backends.cudnn.fastest = True
+torch.backends.cudnn.deterministic = False
+
+# torch.set_num_threads(1)
+
+gpu_times_dict = {}
+for x in sorted(os.listdir("../Search_data/")):
+    title = "../Search_data/"+x
+    if title.endswith("checkpoints"):
+        continue
+
+    batch_size = int(x.split("_")[2])
+
+    if batch_size != 50:
+        continue
+
+    print("batch size : ", batch_size)
+
+    model_name = 'castorini/monot5-base-msmarco'
+    model = T5ForConditionalGenerationCustom.from_pretrained(model_name).half()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # device = "cpu"
+    model = model.to(device).eval()
+
+    tokenizer_name = 't5-base'
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    tokenizer = T5BatchTokenizer(tokenizer, batch_size)
+
+    reranker =  T5Reranker(model, tokenizer)
+
+    with open(title,'rb') as f:
+        rerank_test = pickle.load(f)
+
+    new_data = []
+
+    idx = 0
+
+    new_title = title.replace("pure","reranked").replace("Search_data","drive/My Drive")
+    print(new_title)
+
+    gpu_times = []
+
+    random.shuffle(rerank_test)
+    
+    accuracy = 0
+    total = 0
+
+    for x in rerank_test:
+        idx += 1
+        query_string = x[0]
+        master_question = x[1]
+        hits = x[2]
+        # print(query_string)
+        
+
+        start = timeit.default_timer()
+        query = Query(query_string)
+        texts = [Text(x[1],0) for x in hits]
+
+        # reranked, model_inputs = reranker.rerank(query, texts)
+        reranked = reranker.rerank(query, texts)
+        reranked.sort(key=lambda x: x.score, reverse=True)
+        stop = timeit.default_timer()
+
+        gpu_times.append(stop-start)
+
+        scoreDocs = [[x.score, x.text] for x in reranked]
+
+        selected = scoreDocs[:5]
+        for y in selected:
+            if master_question == y[1]:
+                accuracy +=1
+                break
+        total += 1
+
+        new_data.append([query_string, master_question, scoreDocs])
+
+        if idx%30==0:
+            print("mean time : ", np.mean(gpu_times))
+
+        if idx%90== 0:
+            # for i in range(0, 5):
+            #   print(f'{i+1:2} {reranked[i].score}')
+            # print('$'*80)
+            print(accuracy, total, accuracy/total)
+            # break
+    
+    print(accuracy, total, accuracy/total)
+    
+    gpu_times_dict[new_title]=gpu_times
+
+print("base timing done")
+import pdb
+pdb.set_trace()

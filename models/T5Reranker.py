@@ -10,6 +10,7 @@ torch.backends.cudnn.fastest = True
 torch.backends.cudnn.deterministic = True
 
 from base import Reranker, Text, Query, QueryDocumentBatch
+from T5CustomModel import T5ForConditionalGenerationCustom
 from T5Tokenizer import T5BatchTokenizer
 from typing import List, Mapping, Tuple, Union, Iterable, Optional, Any
 
@@ -24,7 +25,7 @@ class T5Reranker(Reranker):
 
         # if not self.use_reranking_api:         
         model_name = 'castorini/monot5-base-msmarco'
-        model = T5ForConditionalGeneration.from_pretrained(model_name)
+        model = T5ForConditionalGenerationCustom.from_pretrained(model_name)
         
         device = torch.device(\
             "cuda:0" if torch.cuda.is_available() else "cpu")
@@ -35,7 +36,7 @@ class T5Reranker(Reranker):
         else:
             #TODO : figure out half precison
             print("using gpu")
-            model = model.to(device).eval()
+            model = model.to(device).half().eval()
 
         self.model = model
 
