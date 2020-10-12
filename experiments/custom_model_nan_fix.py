@@ -1604,11 +1604,7 @@ for x in sorted(os.listdir("../Search_data/")):
             print("mean time : ", np.mean(gpu_times))
 
         if idx%90== 0:
-            # for i in range(0, 5):
-            #   print(f'{i+1:2} {reranked[i].score}')
-            # print('$'*80)
             print(accuracy, total, accuracy/total)
-            # break
     
     print(accuracy, total, accuracy/total)
     
