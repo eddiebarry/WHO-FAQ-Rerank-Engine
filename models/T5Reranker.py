@@ -81,7 +81,6 @@ class T5Reranker(Reranker):
         texts.sort(key=lambda x: x.score, reverse=True)
         scoreDocs = [[x.score, x.text] for x in texts]
         
-        
         # stop = timeit.default_timer()
         # print(stop-start)
 
