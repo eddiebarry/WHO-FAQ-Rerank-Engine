@@ -1,5 +1,5 @@
 import flask
-import sys, json
+import sys, json, pdb
 sys.path.append("./models")
 from flask import request, jsonify
 from models.T5Reranker import T5Reranker
@@ -39,6 +39,7 @@ def rerank_documents():
     query = params['query']
     texts = params['texts']
     
+    pdb.set_trace()
     scoreDocs = T5Reranker.rerank(query,texts)
 
     response = {
