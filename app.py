@@ -6,6 +6,7 @@ from models.T5Reranker import T5Reranker
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
+app.config['Reranker'] = T5Reranker()
 
 @app.route('/')
 def hello_world():
@@ -40,7 +41,7 @@ def rerank_documents():
     texts = params['texts']
     
     pdb.set_trace()
-    scoreDocs = T5Reranker.rerank(query,texts)
+    scoreDocs = app.config['Reranker'].rerank(query,texts)
 
     response = {
         'scoreDocs' : scoreDocs,
