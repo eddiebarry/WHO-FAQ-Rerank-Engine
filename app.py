@@ -40,7 +40,7 @@ def rerank_documents():
     query = params['query']
     texts = params['texts']
     
-    pdb.set_trace()
+    # pdb.set_trace()
     scoreDocs = app.config['Reranker'].rerank(query,texts)
 
     response = {
