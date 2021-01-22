@@ -3,6 +3,7 @@ import sys, json, pdb, time
 sys.path.append("./models")
 from flask import request, jsonify
 from flask_limiter import Limiter
+from flask_caching import Cache
 from models.T5Reranker import T5Reranker
 
 
