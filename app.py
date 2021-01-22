@@ -1,5 +1,5 @@
 import flask, redis
-import sys, json, pdb
+import sys, json, pdb, time
 sys.path.append("./models")
 from flask import request, jsonify
 from flask_limiter import Limiter
@@ -9,7 +9,7 @@ from models.T5Reranker import T5Reranker
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 app.config['Reranker'] = T5Reranker()
-cache = redis.Redis(host='localhost', port=6379)
+cache = Cache(app, config={'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': 'redis://localhost:6379'})
 
 limiter = Limiter(
     app,
@@ -39,6 +39,7 @@ def get_hit_count():
             time.sleep(0.5)
 
 @app.route('/api/v1/reranking', methods=['GET'])
+@cache.cached(timeout=10)
 @limiter.limit("10 per second")
 def rerank_documents():
     """
