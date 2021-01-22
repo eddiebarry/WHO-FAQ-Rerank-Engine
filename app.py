@@ -9,7 +9,7 @@ from models.T5Reranker import T5Reranker
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 app.config['Reranker'] = T5Reranker()
-cache = redis.Redis(host='redis', port=6379)
+cache = redis.Redis(host='localhost', port=6379)
 
 limiter = Limiter(
     app,
