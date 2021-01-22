@@ -2,17 +2,26 @@ import flask
 import sys, json, pdb
 sys.path.append("./models")
 from flask import request, jsonify
+from flask_limiter import Limiter
 from models.T5Reranker import T5Reranker
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 app.config['Reranker'] = T5Reranker()
 
+limiter = Limiter(
+    app,
+    key_func=lambda : "1",
+    default_limits=["200 per second"]
+)
+
 @app.route('/')
+@limiter.exempt
 def hello_world():
     return 'Hello, World! The reranking service is up :)'
 
 @app.route('/api/v1/reranking', methods=['GET'])
+@limiter.limit("1 per day")
 def rerank_documents():
     """
     This api reranks user queries and search result documents
