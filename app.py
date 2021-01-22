@@ -21,7 +21,7 @@ def hello_world():
     return 'Hello, World! The reranking service is up :)'
 
 @app.route('/api/v1/reranking', methods=['GET'])
-@limiter.limit("1 per day")
+@limiter.limit("10 per second")
 def rerank_documents():
     """
     This api reranks user queries and search result documents
