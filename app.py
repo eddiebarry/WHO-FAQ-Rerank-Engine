@@ -1,13 +1,15 @@
-import flask
+import flask, redis
 import sys, json, pdb
 sys.path.append("./models")
 from flask import request, jsonify
 from flask_limiter import Limiter
 from models.T5Reranker import T5Reranker
 
+
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 app.config['Reranker'] = T5Reranker()
+cache = redis.Redis(host='redis', port=6379)
 
 limiter = Limiter(
     app,
@@ -19,6 +21,22 @@ limiter = Limiter(
 @limiter.exempt
 def hello_world():
     return 'Hello, World! The reranking service is up :)'
+
+@app.route('/get-count')
+def hello():
+    count = get_hit_count()
+    return 'Hello World! I have been seen {} times.\n'.format(count)
+
+def get_hit_count():
+    retries = 5
+    while True:
+        try:
+            return cache.incr('hits')
+        except redis.exceptions.ConnectionError as exc:
+            if retries == 0:
+                raise exc
+            retries -= 1
+            time.sleep(0.5)
 
 @app.route('/api/v1/reranking', methods=['GET'])
 @limiter.limit("10 per second")
