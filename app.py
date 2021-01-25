@@ -39,9 +39,13 @@ def get_hit_count():
             retries -= 1
             time.sleep(0.5)
 
+@cache.memoize()
+def get_score_docs(query, texts):
+    scoreDocs = app.config['Reranker'].rerank(query,texts)
+    return scoreDocs
+
 @app.route('/api/v1/reranking', methods=['GET'])
-@cache.cached(timeout=10)
-@limiter.limit("10 per second")
+# @limiter.limit("10 per second")
 def rerank_documents():
     """
     This api reranks user queries and search result documents
@@ -59,33 +63,28 @@ def rerank_documents():
     Json Object : 
         The form of the json object is as follows : -
     """
-    global T5Reranker
-
-    # import pdb
-    # pdb.set_trace()
 
     params = json.loads(request.json)
     # If first time being sent, calculate a unique id
     query = params['query']
     texts = params['texts']
     
-    # pdb.set_trace()
-    scoreDocs = app.config['Reranker'].rerank(query,texts)
+    scoreDocs = get_score_docs(query=query, texts=texts)
 
     response = {
         'scoreDocs' : scoreDocs,
     }
 
-    # # Logging
+    # Logging
     # original_stdout = sys.stdout 
     # with open('rerank_log.txt', 'a') as f:
     #     sys.stdout = f # Change the standard output to the file we created.
-    #     print('$'*80)
-    #     print("The user query is ", query)
-    #     print("The documents to rerank are ", texts)
-    #     print("The results of the reranking is ", scoreDocs)
-    #     print('$'*80)
-    #     sys.stdout = original_stdout
+    print('$'*80)
+    print("The user query is ", query)
+    print("The documents to rerank are ", texts)
+    print("The results of the reranking is ", scoreDocs)
+    print('$'*80)
+    # sys.stdout = original_stdout
 
     return jsonify(response)
 
