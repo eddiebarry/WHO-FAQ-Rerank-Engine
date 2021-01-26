@@ -45,7 +45,7 @@ def get_score_docs(query, texts):
     return scoreDocs
 
 @app.route('/api/v1/reranking', methods=['GET'])
-# @limiter.limit("10 per second")
+@cache.cached()
 def rerank_documents():
     """
     This api reranks user queries and search result documents
