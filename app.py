@@ -46,6 +46,7 @@ def hello_world():
 
 @app.route('/api/v1/reranking', methods=['GET'])
 # @cache.cached()
+@limiter.exempt
 def rerank_documents():
     """
     This api reranks user queries and search result documents
