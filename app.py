@@ -23,30 +23,41 @@ limiter = Limiter(
 def hello_world():
     return 'Hello, World! The reranking service is up :)'
 
-# @app.route('/get-count')
-# def hello():
-#     count = get_hit_count()
-#     return 'Hello World! I have been seen {} times.\n'.format(count)
+@app.route('/api/v1/reranking-cache', methods=['GET'])
+@limiter.limit("12000/minute;200/second")
+def rerank_documents():
+    """
+    This api reranks user queries and search result documents
 
-# def get_hit_count():
-#     retries = 5
-#     while True:
-#         try:
-#             return cache.incr('hits')
-#         except redis.exceptions.ConnectionError as exc:
-#             if retries == 0:
-#                 raise exc
-#             retries -= 1
-#             time.sleep(0.5)
+    Inputs
+    ------
+    Expects a api call of the form : ""
+    
+    Query : String
+        The string from which we need to find the most relevant 
+        search result for
 
-# @cache.memoize()
-# def get_score_docs(query, texts):
-#     scoreDocs = app.config['Reranker'].rerank(query,texts)
-#     return scoreDocs
+    Outputs
+    -------
+    Json Object : 
+        The form of the json object is as follows : -
+    """
+
+    params = json.loads(request.json)
+    query = params['query']
+    
+    scoreDocs = app.config['cache'].get(query)
+
+    if scoreDocs is None:
+        return '500 not in cache', 500
+    
+    response = {
+        'scoreDocs' : scoreDocs,
+    }   
+    return jsonify(response)
 
 @app.route('/api/v1/reranking', methods=['GET'])
-# @cache.cached()
-@limiter.exempt
+@limiter.limit("36000/hour;600/minute;10/second")
 def rerank_documents():
     """
     This api reranks user queries and search result documents
@@ -71,7 +82,6 @@ def rerank_documents():
     texts = params['texts']
     
     scoreDocs = app.config['cache'].get(query)
-    
     if scoreDocs is None:
         scoreDocs = app.config['Reranker'].rerank(query,texts)
         app.config['cache'].set(query,scoreDocs)
@@ -80,17 +90,6 @@ def rerank_documents():
     response = {
         'scoreDocs' : scoreDocs,
     }
-
-    # Logging
-    # original_stdout = sys.stdout 
-    # with open('rerank_log.txt', 'a') as f:
-    #     sys.stdout = f # Change the standard output to the file we created.
-    # print('$'*80)
-    # print("The user query is ", query)
-    # print("The documents to rerank are ", texts)
-    # print("The results of the reranking is ", scoreDocs)
-    # print('$'*80)
-    # sys.stdout = original_stdout
 
     return jsonify(response)
 
