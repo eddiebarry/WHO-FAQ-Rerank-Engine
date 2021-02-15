@@ -45,7 +45,7 @@ def hello_world():
 #     return scoreDocs
 
 @app.route('/api/v1/reranking', methods=['GET'])
-@cache.cached()
+# @cache.cached()
 def rerank_documents():
     """
     This api reranks user queries and search result documents
