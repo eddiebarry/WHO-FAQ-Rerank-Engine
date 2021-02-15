@@ -8,5 +8,5 @@ docker run -p 6379:6379 --name my-firsredis -d redis
 
 # use this command for maximum performance
 '''
-gunicorn --worker-class gevent   --workers 2   --bind 0.0.0.0:5007   gevent:app --worker-connections 1000
+gunicorn --worker-class gevent   --workers 2   --bind 0.0.0.0:5007   service:app --worker-connections 1000
 '''
