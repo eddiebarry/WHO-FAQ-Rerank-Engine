@@ -25,7 +25,7 @@ def hello_world():
 
 @app.route('/api/v1/reranking-cache', methods=['GET'])
 @limiter.limit("12000/minute;200/second")
-def rerank_documents():
+def cache_documents():
     """
     This api reranks user queries and search result documents
 
@@ -49,7 +49,7 @@ def rerank_documents():
     scoreDocs = app.config['cache'].get(query)
 
     if scoreDocs is None:
-        return jsonify({'message':'500 not in cache'}), 500
+        return '500 not in cache', 500
     
     response = {
         'scoreDocs' : scoreDocs,
