@@ -69,7 +69,11 @@ def rerank_documents():
     query = params['query']
     texts = params['texts']
     
-    scoreDocs = app.config['Reranker'].rerank(query,texts)
+    scoreDocs = app.config['cache'].get(query)
+    
+    if scoreDocs is None:
+        scoreDocs = app.config['Reranker'].rerank(query,texts)
+        app.config['cache'].set(query,scoreDocs)
 
 
     response = {
