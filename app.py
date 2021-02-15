@@ -49,7 +49,7 @@ def cache_documents():
     scoreDocs = app.config['cache'].get(query)
 
     if scoreDocs is None:
-        return '500 not in cache', 500
+        return 'not in cache', 210
     
     response = {
         'scoreDocs' : scoreDocs,
