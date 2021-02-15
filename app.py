@@ -49,7 +49,7 @@ def rerank_documents():
     scoreDocs = app.config['cache'].get(query)
 
     if scoreDocs is None:
-        return '500 not in cache', 500
+        return jsonify({'message':'500 not in cache'}), 500
     
     response = {
         'scoreDocs' : scoreDocs,
