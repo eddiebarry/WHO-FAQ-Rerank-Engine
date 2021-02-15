@@ -24,7 +24,7 @@ def hello_world():
     return 'Hello, World! The reranking service is up :)'
 
 @app.route('/api/v1/reranking-cache', methods=['GET'])
-@limiter.limit("12000/minute;200/second")
+@limiter.limit("24000/minute;400/second")
 def cache_documents():
     """
     This api reranks user queries and search result documents
