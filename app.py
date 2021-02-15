@@ -12,32 +12,17 @@ app.config["DEBUG"] = True
 app.config['Reranker'] = T5Reranker()
 cache = Cache(app, config={'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': 'redis://localhost:6379'})
 
+
 limiter = Limiter(
     app,
     key_func=lambda : "1",
-    default_limits=["10 per second"]
+    default_limits=["100 per second"]
 )
 
 @app.route('/')
 @limiter.exempt
 def hello_world():
     return 'Hello, World! The reranking service is up :)'
-
-@app.route('/get-count')
-def hello():
-    count = get_hit_count()
-    return 'Hello World! I have been seen {} times.\n'.format(count)
-
-def get_hit_count():
-    retries = 5
-    while True:
-        try:
-            return cache.incr('hits')
-        except redis.exceptions.ConnectionError as exc:
-            if retries == 0:
-                raise exc
-            retries -= 1
-            time.sleep(0.5)
 
 @cache.memoize()
 def get_score_docs(query, texts):
