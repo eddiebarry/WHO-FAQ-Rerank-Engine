@@ -10,13 +10,12 @@ from models.T5Reranker import T5Reranker
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 app.config['Reranker'] = T5Reranker()
-cache = Cache(app, config={'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': 'redis://localhost:6379'})
-
+app.config['cache'] = Cache(app, config={'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': 'redis://localhost:6379'})
 
 limiter = Limiter(
     app,
     key_func=lambda : "1",
-    default_limits=["100 per second"]
+    default_limits=["10 per second"]
 )
 
 @app.route('/')
@@ -24,10 +23,26 @@ limiter = Limiter(
 def hello_world():
     return 'Hello, World! The reranking service is up :)'
 
-@cache.memoize()
-def get_score_docs(query, texts):
-    scoreDocs = app.config['Reranker'].rerank(query,texts)
-    return scoreDocs
+# @app.route('/get-count')
+# def hello():
+#     count = get_hit_count()
+#     return 'Hello World! I have been seen {} times.\n'.format(count)
+
+# def get_hit_count():
+#     retries = 5
+#     while True:
+#         try:
+#             return cache.incr('hits')
+#         except redis.exceptions.ConnectionError as exc:
+#             if retries == 0:
+#                 raise exc
+#             retries -= 1
+#             time.sleep(0.5)
+
+# @cache.memoize()
+# def get_score_docs(query, texts):
+#     scoreDocs = app.config['Reranker'].rerank(query,texts)
+#     return scoreDocs
 
 @app.route('/api/v1/reranking', methods=['GET'])
 @cache.cached()
@@ -54,7 +69,8 @@ def rerank_documents():
     query = params['query']
     texts = params['texts']
     
-    scoreDocs = get_score_docs(query=query, texts=texts)
+    scoreDocs = app.config['Reranker'].rerank(query,texts)
+
 
     response = {
         'scoreDocs' : scoreDocs,
