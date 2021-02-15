@@ -15,7 +15,7 @@ cache = Cache(app, config={'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': 'redis://lo
 limiter = Limiter(
     app,
     key_func=lambda : "1",
-    default_limits=["200 per second"]
+    default_limits=["10 per second"]
 )
 
 @app.route('/')
