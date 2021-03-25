@@ -11,6 +11,7 @@ app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 app.config['Reranker'] = T5Reranker()
 app.config['cache'] = Cache(app, config={'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': 'redis://localhost:6379','CACHE_DEFAULT_TIMEOUT':3600})
+app.config['cache'].clear()
 
 limiter = Limiter(
     app,
