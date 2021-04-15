@@ -1,0 +1,8 @@
+recursive-include experiments *.*
+recursive-include models *.*
+recursive-include nginx *.*
+recursive-include Search_data *.*
+include *.py
+include .env
+include requirements.txt
+include Dockerfile

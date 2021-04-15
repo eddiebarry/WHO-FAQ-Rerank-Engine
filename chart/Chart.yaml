@@ -1,0 +1,10 @@
+apiVersion: v2
+name: reranker-host
+description: A Helm chart to deploy the interakt backend service
+type: application
+# HelmChart Version
+version: 1.0.0
+# This is the version number of the application being deployed. This version number should be
+# incremented each time you make changes to the application.
+appVersion: 1.0.0
+home: https://github.com/WHOAcademy/CICD-experiments

@@ -1,0 +1,76 @@
+{{- if eq .Values.redis.enabled true -}}
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata:
+  annotations:
+    template.alpha.openshift.io/wait-for-ready: "true"
+  labels:
+    template: redis-persistent-template
+  name: {{ template "redis.name" . }}
+spec:
+  replicas: 1
+  selector:
+    name: {{ template "redis.name" . }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        name: {{ template "redis.name" . }}
+    spec:
+      containers:
+      - env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-password
+              name: {{ template "redis.name" . }}
+        image: ' '
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          initialDelaySeconds: 30
+          tcpSocket:
+            port: {{ .Values.redis.service.port | default "6379" }}
+          timeoutSeconds: 1
+        name: redis
+        ports:
+        - containerPort: {{ .Values.redis.service.port | default "6379" }}
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -i
+            - -c
+            - test "$(redis-cli -h 127.0.0.1 -a $REDIS_PASSWORD ping)" == "PONG"
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+        resources:
+          limits:
+            memory: {{ .Values.redis.memory_limit }}
+        securityContext:
+          capabilities: {}
+          privileged: false
+        terminationMessagePath: /dev/termination-log
+        volumeMounts:
+        - mountPath: /var/lib/redis/data
+          name: {{ template "redis.name" . }}-data
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      volumes:
+      - name: {{ template "redis.name" . }}-data
+        persistentVolumeClaim:
+          claimName: {{ template "redis.name" . }}
+  triggers:
+  - imageChangeParams:
+      automatic: true
+      containerNames:
+      - redis
+      from:
+        kind: ImageStreamTag
+        name: redis:{{ .Values.redis.redis_version }}
+        namespace: {{ .Values.redis.is_namespace }}
+      lastTriggeredImage: ""
+    type: ImageChange
+  - type: ConfigChange
+{{- end }}

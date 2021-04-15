@@ -1,0 +1,23 @@
+{{- if eq .Values.redis.enabled true -}}
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    template.openshift.io/expose-uri: redis://{.spec.clusterIP}:{.spec.ports[?(.name=="redis")].port}
+  labels:
+    template: redis-persistent-template
+  name: {{ template "redis.fullname" . }}
+spec:
+  ports:
+  - name: redis
+    nodePort: 0
+    port: {{ .Values.redis.service.port | default "6379" }}
+    protocol: TCP
+    targetPort: {{ .Values.redis.service.port | default "6379" }}
+  selector:
+    name: {{ template "redis.name" . }}
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}
+{{- end }}

@@ -1,0 +1,112 @@
+replicas: 1
+# build info not used atm
+build:
+  build_tag: latest
+  base_image: python:3.7
+  enabled: true
+  source_docker_file_path: Dockerfile
+image_repository: quay.io
+image_name: reranker-host
+image_namespace: whoacademy
+image_tag: 1.0.0
+
+# OCP route
+route: true
+
+
+# #Django
+# #have to get this from vault etc. maybe
+# secret_key: gs7(p)fk=pf2(kbg*1wz$x+hnmw@y6%ij*x&pq4(^y8xjq$q#f
+# environment: dev
+# extra_env:
+#   - name: SUGGEST_KEYWORD_URL
+#     value: http://52.209.188.140:5007/api/v2/batch_keyword_extract
+#   - name: TRAIN_BOT_URL
+#     value: http://52.209.188.140:5007/api/v2/train_bot_json_array
+#   - name: TEST_BOT_URL
+#     value: http://52.209.188.140:5007/api/v2/get-bot-host
+
+
+# postgresql:
+#   enabled: true
+#   accessmode: ReadWriteOnce
+#   service:
+#     port: 5432
+#     type: ClusterIP
+#   image:
+#     tag: "9.6"
+
+#   storageClass:
+#   accessMode: ReadWriteOnce
+#   size: 5Gi
+
+#   # To use an external secret for the password for an external PostgreSQL
+#   # instance, set enabled to false and provide the name of the secret on the
+#   # line below:
+#   # existingSecret: ""
+#   username: "bastian"
+#   password: "balthazar"
+#   database: "interakt_backend"
+
+#   ## Set annotations on pvc
+#   annotations: {}
+
+# rerankerBuild:
+#   build_tag: latest
+#   base_image: python-37:latest
+#   enabled: true
+#   source_docker_file_path: ./WHO-FAQ-Rerank-Engine/Dockerfile
+
+# botpress:
+#   dcName: botpress-dc
+#   routeName: botpress-route
+#   serviceName: botpress-service
+#   enabled: true
+#   minReplicas: 1
+#   maxReplicas: 2
+#   target:
+#     apiVersion: apps.openshift.io/v1
+#     kind: DeploymentConfig
+#   cpuTarget: 1000m
+#   memTarget: 500Mi
+
+
+# reranker:
+#   dcName: reranker-dc
+#   routeName: reranker-route
+#   serviceName: reranker-service
+#   enabled: true
+#   minReplicas: 1
+#   maxReplicas: 2
+#   target:
+#     apiVersion: apps.openshift.io/v1
+#     kind: DeploymentConfig
+#   cpuTarget: 1000m
+#   memTarget: 500Mi
+
+# Horizontal Pod Autoscaler
+hpa:
+  enabled: false
+  target:
+    apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
+  minReplicas: 1
+  maxReplicas: 2
+  cpuTarget: 1000m
+  memTarget: 500Mi
+
+redis:
+  enabled: true
+  memory_limit: 512Mi
+  is_namespace: openshift
+  redis_password: 'somepassword'
+  redis_version: "5"
+  volume_capacity: 1Gi
+  service:
+    port: 6379
+
+storage:
+  enabled: false
+  volume_capacity: 100Mi
+  storageClassName: azure-file-storage
+  mountPath: /opt/app-root/src/vla/media
